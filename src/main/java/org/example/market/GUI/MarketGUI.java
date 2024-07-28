@@ -2,13 +2,10 @@ package org.example.market.GUI;
 
 import org.example.market.model.*;
 import org.example.market.simulation.MarketSimulator;
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
@@ -41,93 +38,91 @@ public class MarketGUI {
         this.simulator = simulator;
         this.seriesMap = new ConcurrentHashMap<>();
         this.datasetMap = new ConcurrentHashMap<>();
-        this.currentInstrument = market.getInstruments().getFirst().getSymbol(); // Set first available instrument
+        this.currentInstrument = market.getInstruments().get(0).getSymbol();
         initialize();
     }
 
-    public void setSimulator(MarketSimulator simulator) {
-        this.simulator = simulator;
+    private void initialize() {
+        frame = createMainFrame();
+        JPanel mainPanel = createMainPanel();
+        JPanel controlPanel = createControlPanel();
+
+        mainPanel.add(controlPanel, BorderLayout.NORTH);
+        mainPanel.add(createPortfolioScrollPane(), BorderLayout.CENTER);
+        mainPanel.add(createChartPanel(), BorderLayout.SOUTH);
+
+        frame.getContentPane().add(mainPanel);
+        frame.setVisible(true);
     }
 
-    private void initialize() {
-        frame = new JFrame("Stock Market Simulator");
+    private JFrame createMainFrame() {
+        JFrame frame = new JFrame("Stock Market Simulator");
         frame.setBounds(100, 100, 800, 600);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.getContentPane().setLayout(new BorderLayout(0, 0));
+        return frame;
+    }
 
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BorderLayout());
-        frame.getContentPane().add(mainPanel, BorderLayout.CENTER);
+    private JPanel createMainPanel() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        return mainPanel;
+    }
 
+    private JPanel createControlPanel() {
         JPanel panel = new JPanel();
-        frame.getContentPane().add(panel, BorderLayout.NORTH);
+        panel.add(new JLabel("Instrument:"));
+        panel.add(createInstrumentComboBox());
+        panel.add(new JLabel("Quantity:"));
+        panel.add(createQuantityField());
+        panel.add(createBuyButton());
+        panel.add(createSellButton());
+        panel.add(currentPriceLabel = new JLabel("Current Price: "));
+        panel.add(budgetLabel = new JLabel("Budget: $" + trader.getBudget()));
+        return panel;
+    }
 
-        JLabel lblInstrument = new JLabel("Instrument:");
-        panel.add(lblInstrument);
-
+    private JComboBox<String> createInstrumentComboBox() {
         instrumentComboBox = new JComboBox<>();
-        for (FinancialInstrument instrument : market.getInstruments()) {
+        market.getInstruments().forEach(instrument -> {
             instrumentComboBox.addItem(instrument.getSymbol());
             XYSeries series = new XYSeries(instrument.getSymbol());
             seriesMap.put(instrument.getSymbol(), series);
-            XYSeriesCollection dataset = new XYSeriesCollection(series);
-            datasetMap.put(instrument.getSymbol(), dataset);
-        }
-        instrumentComboBox.addActionListener(e -> {
-            String symbol = (String) instrumentComboBox.getSelectedItem();
-            switchInstrument(symbol);
+            datasetMap.put(instrument.getSymbol(), new XYSeriesCollection(series));
         });
-        panel.add(instrumentComboBox);
+        instrumentComboBox.addActionListener(e -> switchInstrument((String) instrumentComboBox.getSelectedItem()));
+        return instrumentComboBox;
+    }
 
-        JLabel lblQuantity = new JLabel("Quantity:");
-        panel.add(lblQuantity);
+    private JTextField createQuantityField() {
+        quantityField = new JTextField(10);
+        return quantityField;
+    }
 
-        quantityField = new JTextField();
-        panel.add(quantityField);
-        quantityField.setColumns(10);
-
+    private JButton createBuyButton() {
         JButton btnBuy = new JButton("Buy");
-        btnBuy.addActionListener(e -> {
-            BigDecimal quantity = new BigDecimal(quantityField.getText());
-            FinancialInstrument instrument = market.getInstrument(currentInstrument);
-            if (instrument != null) {
-                boolean success = trader.buy(instrument, quantity);
-                if (success) {
-                    SwingUtilities.invokeLater(() -> {
-                        updatePortfolioTable();
-                        updateBudgetLabel();
-                    });
-                } else {
-                    JOptionPane.showMessageDialog(frame, "Insufficient funds to buy.", "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-        panel.add(btnBuy);
+        btnBuy.addActionListener(e -> executeTrade(true));
+        return btnBuy;
+    }
 
+    private JButton createSellButton() {
         JButton btnSell = new JButton("Sell");
-        btnSell.addActionListener(e -> {
-            BigDecimal quantity = new BigDecimal(quantityField.getText());
-            FinancialInstrument instrument = market.getInstrument(currentInstrument);
-            if (instrument != null) {
-                boolean success = trader.sell(instrument, quantity);
-                if (success) {
-                    SwingUtilities.invokeLater(() -> {
-                        updatePortfolioTable();
-                        updateBudgetLabel();
-                    });
-                } else {
-                    JOptionPane.showMessageDialog(frame, "Insufficient shares to sell.", "Error", JOptionPane.ERROR_MESSAGE);
-                }
+        btnSell.addActionListener(e -> executeTrade(false));
+        return btnSell;
+    }
+
+    private void executeTrade(boolean isBuy) {
+        BigDecimal quantity = new BigDecimal(quantityField.getText());
+        FinancialInstrument instrument = market.getInstrument(currentInstrument);
+        if (instrument != null) {
+            boolean success = isBuy ? trader.buy(instrument, quantity) : trader.sell(instrument, quantity);
+            if (success) {
+                SwingUtilities.invokeLater(this::updatePortfolioAndBudget);
+            } else {
+                JOptionPane.showMessageDialog(frame, "Insufficient funds or shares.", "Error", JOptionPane.ERROR_MESSAGE);
             }
-        });
-        panel.add(btnSell);
+        }
+    }
 
-        currentPriceLabel = new JLabel("Current Price: ");
-        panel.add(currentPriceLabel);
-
-        budgetLabel = new JLabel("Budget: $" + trader.getBudget());
-        panel.add(budgetLabel);
-
+    private JScrollPane createPortfolioScrollPane() {
         portfolioTableModel = new DefaultTableModel(new Object[]{"Instrument", "Quantity"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -135,39 +130,30 @@ public class MarketGUI {
             }
         };
         portfolioTable = new JTable(portfolioTableModel);
-        JScrollPane portfolioScrollPane = new JScrollPane(portfolioTable);
-        mainPanel.add(portfolioScrollPane, BorderLayout.CENTER);
+        return new JScrollPane(portfolioTable);
+    }
 
-        // Initialize the chart with the default instrument's dataset
+    private ChartPanel createChartPanel() {
         XYSeriesCollection initialDataset = datasetMap.get(currentInstrument);
         JFreeChart chart = ChartFactory.createXYLineChart("Price Over Time", "Time (seconds)", "Price", initialDataset, PlotOrientation.VERTICAL, true, true, false);
-        XYPlot plot = (XYPlot) chart.getPlot();
-        NumberAxis domainAxis = (NumberAxis) plot.getDomainAxis();
-        domainAxis.setAutoRangeIncludesZero(false);
         chartPanel = new ChartPanel(chart);
-        mainPanel.add(chartPanel, BorderLayout.SOUTH);
+        return chartPanel;
+    }
 
+    private void updatePortfolioAndBudget() {
         updatePortfolioTable();
-        switchInstrument(currentInstrument); // Set the default instrument
-
-        // Set up a timer to update the chart
-        Timer updateTimer = new Timer(1000, e -> simulator.updateCurrentInstrumentData(currentInstrument));
-        updateTimer.start();
+        updateBudgetLabel();
     }
 
     private void updatePortfolioTable() {
         portfolioTableModel.setRowCount(0);
-        for (Map.Entry<FinancialInstrument, BigDecimal> entry : trader.getPortfolio().getInstruments().entrySet()) {
-            portfolioTableModel.addRow(new Object[]{entry.getKey().getName(), entry.getValue()});
-        }
+        trader.getPortfolio().getInstruments().forEach((instrument, quantity) -> {
+            portfolioTableModel.addRow(new Object[]{instrument.getName(), quantity});
+        });
     }
 
     private void updateBudgetLabel() {
         budgetLabel.setText("Budget: $" + trader.getBudget());
-    }
-
-    public void show() {
-        frame.setVisible(true);
     }
 
     public void updateCurrentPrice(String symbol, BigDecimal price) {
@@ -188,20 +174,19 @@ public class MarketGUI {
     }
 
     public void switchInstrument(String newInstrument) {
-        synchronized (this) {
-            this.currentInstrument = newInstrument;
-            FinancialInstrument instrument = market.getInstrument(newInstrument);
-            if (instrument != null) {
-                System.out.println("Switched to instrument: " + newInstrument); // Debugging line
-                XYSeriesCollection dataset = datasetMap.get(newInstrument);
-                chartPanel.setChart(ChartFactory.createXYLineChart("Price Over Time", "Time (seconds)", "Price", dataset, PlotOrientation.VERTICAL, true, true, false));
-                updateCurrentPrice(newInstrument, instrument.getCurrentPrice());
-            }
+        currentInstrument = newInstrument;
+        FinancialInstrument instrument = market.getInstrument(newInstrument);
+        if (instrument != null) {
+            chartPanel.setChart(ChartFactory.createXYLineChart("Price Over Time", "Time (seconds)", "Price", datasetMap.get(newInstrument), PlotOrientation.VERTICAL, true, true, false));
+            updateCurrentPrice(newInstrument, instrument.getCurrentPrice());
         }
+    }
+
+    public void show() {
+        frame.setVisible(true);
     }
 
     public String getCurrentInstrument() {
         return currentInstrument;
     }
 }
-

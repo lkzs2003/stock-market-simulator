@@ -3,7 +3,7 @@ package org.example.market.model;
 import java.math.BigDecimal;
 
 public abstract class Trader extends User {
-    private int riskAssessmentLevel; // 1-10
+    private int riskAssessmentLevel;
     private Portfolio portfolio;
     private BigDecimal budget;
 
@@ -11,7 +11,7 @@ public abstract class Trader extends User {
         super(userId, username, password, email);
         this.riskAssessmentLevel = riskAssessmentLevel;
         this.portfolio = new Portfolio();
-        this.budget = new BigDecimal("10000.00"); // Początkowy budżet
+        this.budget = new BigDecimal("10000.00");
     }
 
     public abstract boolean buy(FinancialInstrument instrument, BigDecimal quantity);
@@ -27,8 +27,7 @@ public abstract class Trader extends User {
     }
 
     public int assessRisk(Transaction transaction) {
-        // Logika oceny ryzyka
-        return 5; // przykładowa wartość
+        return 5; // example value
     }
 
     public boolean isAcceptableRisk(int riskLevel) {

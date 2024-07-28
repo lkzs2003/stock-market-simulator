@@ -15,16 +15,16 @@ public abstract class User {
 
     public boolean login(String username, String password) {
         if (this.username.equals(username) && this.password.equals(password)) {
-            System.out.println("Użytkownik został zalogowany.");
+            System.out.println("User logged in.");
             return true;
         } else {
-            System.out.println("Niepoprawne dane logowania.");
+            System.out.println("Invalid login credentials.");
             return false;
         }
     }
 
     public void logout() {
-        System.out.println("Użytkownik został wylogowany.");
+        System.out.println("User logged out.");
     }
 
     public String getUserId() {

@@ -32,4 +32,3 @@ public class StockTrader extends Trader {
         }
     }
 }
-
