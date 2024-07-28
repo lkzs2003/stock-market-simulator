@@ -13,6 +13,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,6 +23,7 @@ public class MarketGUI {
     private JTextField quantityField;
     private JLabel currentPriceLabel;
     private JLabel budgetLabel;
+    private JLabel riskLabel; // Nowe pole dla oceny ryzyka
     private JTable portfolioTable;
     private DefaultTableModel portfolioTableModel;
     private final Market market;
@@ -53,6 +55,8 @@ public class MarketGUI {
 
         frame.getContentPane().add(mainPanel);
         frame.setVisible(true);
+
+        updateRiskLabelForCurrentInstrument(); // Aktualizacja oceny ryzyka przy uruchomieniu
     }
 
     private JFrame createMainFrame() {
@@ -77,6 +81,7 @@ public class MarketGUI {
         panel.add(createSellButton());
         panel.add(currentPriceLabel = new JLabel("Current Price: "));
         panel.add(budgetLabel = new JLabel("Budget: $" + trader.getBudget()));
+        panel.add(riskLabel = new JLabel("Risk: N/A")); // Inicjalizacja pola oceny ryzyka
         return panel;
     }
 
@@ -88,7 +93,10 @@ public class MarketGUI {
             seriesMap.put(instrument.getSymbol(), series);
             datasetMap.put(instrument.getSymbol(), new XYSeriesCollection(series));
         });
-        instrumentComboBox.addActionListener(e -> switchInstrument((String) instrumentComboBox.getSelectedItem()));
+        instrumentComboBox.addActionListener(e -> {
+            switchInstrument((String) instrumentComboBox.getSelectedItem());
+            updateRiskLabelForCurrentInstrument(); // Aktualizacja oceny ryzyka po zmianie instrumentu
+        });
         return instrumentComboBox;
     }
 
@@ -113,9 +121,14 @@ public class MarketGUI {
         BigDecimal quantity = new BigDecimal(quantityField.getText());
         FinancialInstrument instrument = market.getInstrument(currentInstrument);
         if (instrument != null) {
+            Transaction transaction = new Transaction(isBuy ? "Buy" : "Sell", instrument, quantity, instrument.getCurrentPrice(), LocalDateTime.now());
+            int riskLevel = trader.assessRisk(transaction);
             boolean success = isBuy ? trader.buy(instrument, quantity) : trader.sell(instrument, quantity);
             if (success) {
-                SwingUtilities.invokeLater(this::updatePortfolioAndBudget);
+                SwingUtilities.invokeLater(() -> {
+                    updatePortfolioAndBudget();
+                    updateRiskLabel(riskLevel); // Aktualizacja oceny ryzyka po transakcji
+                });
             } else {
                 JOptionPane.showMessageDialog(frame, "Insufficient funds or shares.", "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -179,6 +192,20 @@ public class MarketGUI {
         if (instrument != null) {
             chartPanel.setChart(ChartFactory.createXYLineChart("Price Over Time", "Time (seconds)", "Price", datasetMap.get(newInstrument), PlotOrientation.VERTICAL, true, true, false));
             updateCurrentPrice(newInstrument, instrument.getCurrentPrice());
+            updateRiskLabelForCurrentInstrument(); // Aktualizacja oceny ryzyka przy zmianie instrumentu
+        }
+    }
+
+    private void updateRiskLabel(int riskLevel) {
+        riskLabel.setText("Risk: " + riskLevel + "/10");
+    }
+
+    private void updateRiskLabelForCurrentInstrument() {
+        FinancialInstrument instrument = market.getInstrument(currentInstrument);
+        if (instrument != null) {
+            Transaction transaction = new Transaction("View", instrument, BigDecimal.ONE, instrument.getCurrentPrice(), LocalDateTime.now());
+            int riskLevel = trader.assessRisk(transaction);
+            updateRiskLabel(riskLevel);
         }
     }
 

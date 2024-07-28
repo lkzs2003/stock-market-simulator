@@ -21,23 +21,25 @@ public class Transaction {
         this.status = TransactionStatus.PENDING;
     }
 
-    public boolean execute() {
+    public boolean execute(Trader trader) {
+        int riskLevel = trader.assessRisk(this);
+        if (!trader.isAcceptableRisk(riskLevel)) {
+            this.status = TransactionStatus.FAILED;
+            return false;
+        }
         if (!validate()) {
             this.status = TransactionStatus.FAILED;
             return false;
         }
-        // Implementacja logiki wykonania transakcji
         this.status = TransactionStatus.COMPLETED;
         return true;
     }
 
     private boolean validate() {
-        // Walidacja warunków transakcji
         return true;
     }
 
     public void rollback() {
-        // Implementacja logiki cofania transakcji
         this.status = TransactionStatus.PENDING;
     }
 
@@ -69,4 +71,3 @@ public class Transaction {
         return status;
     }
 }
-
