@@ -1,17 +1,54 @@
 package org.example.market.simulation;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+import org.example.market.data.StockDataLoader;
+import org.example.market.data.StockDataPoint;
+import org.example.market.GUI.MarketGUI;
+import org.example.market.model.*;
+
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
+
 public class Main {
     public static void main(String[] args) {
-        //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-        // to see how IntelliJ IDEA suggests fixing it.
-        System.out.printf("Hello and welcome!");
+        // Path to processed data files
+        List<String> filePaths = Arrays.asList(
+                "AAPL.csv",
+                "DELL.csv",
+                "EUR=X.csv",
+                "GBP=X.csv",
+                "MCD.csv",
+                "MSFT.csv",
+                "NFLX.csv",
+                "NKE.csv",
+                "SBUX.csv",
+                "TSLA.csv"
+        );
 
-        for (int i = 1; i <= 5; i++) {
-            //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-            // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-            System.out.println("i = " + i);
-        }
+        // Load market data
+        StockDataLoader dataLoader = new StockDataLoader();
+        List<StockDataPoint> dataPoints = dataLoader.loadMultipleStockData(filePaths);
+
+        // Initialize market and financial instruments
+        Market market = new Market();
+        market.addInstrumentsFromSymbols(Arrays.asList("AAPL", "DELL", "MCD", "MSFT", "NFLX", "NKE", "SBUX", "TSLA"));
+
+        // Add currencies as instances of Currency class
+        market.addInstrument(new Currency("EUR=X", "Euro", BigDecimal.ZERO, "Eurozone"));
+        market.addInstrument(new Currency("GBP=X", "Pound", BigDecimal.ZERO, "United Kingdom"));
+
+        // Initialize trader
+        Trader trader = new StockTrader("1", "JohnDoe", "password", "john.doe@example.com", 10000);
+
+        // Initialize simulator and GUI
+        MarketSimulator simulator = new MarketSimulator(dataPoints, market, null);
+        MarketGUI marketGUI = new MarketGUI(market, trader, simulator);
+        simulator.setMarketGUI(marketGUI);
+
+        // Show GUI
+        marketGUI.show();
+
+        // Start simulation
+        simulator.startSimulation();
     }
 }
