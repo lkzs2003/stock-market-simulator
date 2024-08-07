@@ -2,72 +2,58 @@ package org.example.market.simulation;
 
 import org.example.market.data.StockDataLoader;
 import org.example.market.data.StockDataPoint;
-import org.example.market.GUI.MarketGUI;
+import org.example.market.GUI.LoginFrame;
+import org.example.market.GUI.MainFrame;
 import org.example.market.model.*;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 public class Main {
     public static void main(String[] args) {
-        List<String> filePaths = Arrays.asList(
-                "AAPL.csv",
-                "DELL.csv",
-                "EUR=X.csv",
-                "GBP=X.csv",
-                "MCD.csv",
-                "MSFT.csv",
-                "NFLX.csv",
-                "NKE.csv",
-                "SBUX.csv",
-                "TSLA.csv"
-        );
+        // Wyświetl okno logowania i uzyskaj zalogowanego tradera
+        LoginFrame loginFrame = new LoginFrame(null);
+        loginFrame.setVisible(true);
+        Trader trader = loginFrame.getAuthenticatedTrader();
 
-        StockDataLoader dataLoader = new StockDataLoader();
-        List<StockDataPoint> dataPoints = dataLoader.loadMultipleStockData(filePaths);
+        if (trader != null) {
+            // Inicjalizacja obiektu Market
+            Market market = initializeMarket();
 
-        Map<String, List<StockDataPoint>> dataPointsBySymbol = dataPoints.stream()
-                .collect(Collectors.groupingBy(StockDataPoint::getSymbol));
+            // Load market data
+            List<String> filePaths = Arrays.asList(
+                    "AAPL.csv",
+                    "DELL.csv",
+                    "EUR=X.csv",
+                    "GBP=X.csv",
+                    "MCD.csv",
+                    "MSFT.csv",
+                    "NFLX.csv",
+                    "NKE.csv",
+                    "SBUX.csv",
+                    "TSLA.csv"
+            );
 
-        Market market = initializeMarket(dataPointsBySymbol);
+            StockDataLoader dataLoader = new StockDataLoader();
+            List<StockDataPoint> dataPoints = dataLoader.loadMultipleStockData(filePaths);
 
-        Trader trader = new StockTrader("1", "JohnDoe", "password", "john.doe@example.com", 5);
-
-        MarketSimulator simulator = new MarketSimulator(dataPoints, market, null);
-        MarketGUI marketGUI = new MarketGUI(market, trader, simulator);
-        simulator.setMarketGUI(marketGUI);
-
-        marketGUI.show();
-        simulator.startSimulation();
+            // Wyświetl główne okno programu
+            MainFrame mainFrame = new MainFrame(trader, market);
+            MarketSimulator simulator = new MarketSimulator(dataPoints, market, mainFrame);
+            mainFrame.setSimulator(simulator);
+            simulator.startSimulation();
+            mainFrame.setVisible(true);
+        } else {
+            System.out.println("Login failed or cancelled");
+        }
     }
 
-    private static Market initializeMarket(Map<String, List<StockDataPoint>> dataPointsBySymbol) {
+    private static Market initializeMarket() {
         Market market = new Market();
-        List<String> stockSymbols = Arrays.asList("AAPL", "DELL", "MCD", "MSFT", "NFLX", "NKE", "SBUX", "TSLA");
-
-        for (String symbol : stockSymbols) {
-            Stock stock = new Stock(symbol, symbol + " Inc.", BigDecimal.ZERO, "NASDAQ");
-            stock.setHistoricalPrices(dataPointsBySymbol.get(symbol).stream()
-                    .map(StockDataPoint::getPrice)
-                    .collect(Collectors.toList()));
-            market.addInstrument(stock);
-        }
-
-        Currency eur = new Currency("EUR=X", "Euro", BigDecimal.ZERO, "Eurozone");
-        eur.setHistoricalPrices(dataPointsBySymbol.get("EUR=X").stream()
-                .map(StockDataPoint::getPrice)
-                .collect(Collectors.toList()));
-        market.addInstrument(eur);
-
-        Currency gbp = new Currency("GBP=X", "Pound", BigDecimal.ZERO, "United Kingdom");
-        gbp.setHistoricalPrices(dataPointsBySymbol.get("GBP=X").stream()
-                .map(StockDataPoint::getPrice)
-                .collect(Collectors.toList()));
-        market.addInstrument(gbp);
-
+        market.addInstrumentsFromSymbols(Arrays.asList("AAPL", "DELL", "MCD", "MSFT", "NFLX", "NKE", "SBUX", "TSLA"));
+        market.addInstrument(new Currency("EUR=X", "Euro", BigDecimal.ZERO, "Eurozone"));
+        market.addInstrument(new Currency("GBP=X", "Pound", BigDecimal.ZERO, "United Kingdom"));
         return market;
     }
 }

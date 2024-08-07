@@ -14,4 +14,3 @@ public class Currency extends FinancialInstrument {
         return this.country;
     }
 }
-

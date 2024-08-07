@@ -58,15 +58,13 @@ public class MarketSimulator {
                     FinancialInstrument instrument = market.getInstrument(dataPoint.getSymbol());
                     if (instrument != null) {
                         instrument.updatePrice(dataPoint.getPrice());
+                        long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
                         SwingUtilities.invokeLater(() -> {
-                            long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
                             marketGUI.updateCurrentPrice(instrument.getSymbol(), dataPoint.getPrice());
-                            if (instrument.getSymbol().equals(marketGUI.getCurrentInstrument())) {
-                                marketGUI.updateChart(instrument.getSymbol(), dataPoint.getPrice(), elapsedTime);
-                            }
+                            marketGUI.updateChart(instrument.getSymbol(), dataPoint.getPrice(), elapsedTime);
                         });
                         try {
-                            Thread.sleep(1000);
+                            Thread.sleep(1000); // Simulate time delay for new data points
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }

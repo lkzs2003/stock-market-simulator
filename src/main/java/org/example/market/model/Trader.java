@@ -75,14 +75,8 @@ public abstract class Trader extends User {
                 .map(price -> price.divide(price, BigDecimal.ROUND_HALF_UP))
                 .collect(Collectors.toList());
 
-        List<BigDecimal> marketReturns = getMarketReturns();
-        int minLength = Math.min(returns.size(), marketReturns.size());
-
-        returns = returns.subList(0, minLength);
-        marketReturns = marketReturns.subList(0, minLength);
-
-        double covariance = calculateCovariance(returns, marketReturns);
-        double marketVariance = calculateVariance(marketReturns);
+        double covariance = calculateCovariance(returns, getMarketReturns());
+        double marketVariance = calculateVariance(getMarketReturns());
         return covariance / marketVariance;
     }
 

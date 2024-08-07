@@ -1,7 +1,6 @@
 package org.example.market.model;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 public abstract class FinancialInstrument {
@@ -14,7 +13,6 @@ public abstract class FinancialInstrument {
         this.symbol = symbol;
         this.name = name;
         this.currentPrice = currentPrice;
-        this.historicalPrices = new ArrayList<>(); // Inicjalizacja pustej listy
     }
 
     public String getSymbol() {
