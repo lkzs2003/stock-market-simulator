@@ -116,4 +116,9 @@ public abstract class Trader extends User {
         double variance = prices.stream().mapToDouble(price -> Math.pow(price.doubleValue() - mean, 2)).average().orElse(0.0);
         return Math.sqrt(variance);
     }
+
+    @Override
+    public boolean login(String username, String password) {
+        return super.login(username, password);
+    }
 }
