@@ -15,9 +15,9 @@ import java.util.List;
 public class LoginFrame extends JFrame {
     private JTextField usernameField;
     private JPasswordField passwordField;
-    private UserService userService;
-    private Market market;
-    private List<StockDataPoint> dataPoints;
+    private final UserService userService;
+    private final Market market;
+    private final List<StockDataPoint> dataPoints;
 
     // Konstruktor przyjmujący trzy argumenty
     public LoginFrame(UserService userService, Market market, List<StockDataPoint> dataPoints) {
@@ -91,10 +91,12 @@ public class LoginFrame extends JFrame {
         SwingUtilities.invokeLater(() -> {
             dispose();  // Zamknięcie okna logowania
             MarketSimulator simulator = new MarketSimulator(dataPoints, market, null);
-            MarketGUI marketGUI = new MarketGUI(market, trader, simulator);
-            simulator.setMarketGUI(marketGUI);
-            marketGUI.show();
+            MainFrame mainFrame = new MainFrame(trader, market); // Zamiast MarketGUI użyj MainFrame
+            simulator.setMarketGUI(mainFrame);
+            mainFrame.setSimulator(simulator);
+            mainFrame.setVisible(true);
             simulator.startSimulation();
         });
     }
+
 }
