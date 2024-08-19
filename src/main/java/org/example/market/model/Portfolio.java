@@ -28,4 +28,3 @@ public class Portfolio {
         return instruments;
     }
 }
-
