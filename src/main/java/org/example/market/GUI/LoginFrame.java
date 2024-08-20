@@ -2,7 +2,7 @@ package org.example.market.GUI;
 
 import org.example.market.data.StockDataPoint;
 import org.example.market.model.Market;
-import org.example.market.model.Trader;
+import org.example.market.model.StockTrader;
 import org.example.market.service.UserService;
 import org.example.market.simulation.MarketSimulator;
 
@@ -61,7 +61,7 @@ public class LoginFrame extends JFrame {
             String username = usernameField.getText();
             String password = new String(passwordField.getPassword());
 
-            Trader trader = userService.loginUser(username, password);
+            StockTrader trader = (StockTrader) userService.loginUser(username, password); // Zakładamy, że użytkownik jest typu StockTrader
             if (trader != null) {
                 JOptionPane.showMessageDialog(LoginFrame.this, "Login successful.");
                 launchSimulation(trader);
@@ -87,11 +87,11 @@ public class LoginFrame extends JFrame {
         });
     }
 
-    private void launchSimulation(Trader trader) {
+    private void launchSimulation(StockTrader stockTrader) {
         SwingUtilities.invokeLater(() -> {
             dispose();  // Zamknięcie okna logowania
-            MarketSimulator simulator = new MarketSimulator(dataPoints, market, null);
-            MainFrame mainFrame = new MainFrame(trader, market); // Zamiast MarketGUI użyj MainFrame
+            MarketSimulator simulator = new MarketSimulator(dataPoints, market, stockTrader, null); // Tworzymy MarketSimulator
+            MainFrame mainFrame = new MainFrame(stockTrader, market, simulator);  // Przekazujemy MarketSimulator do MainFrame
             simulator.setMarketGUI(mainFrame);
             mainFrame.setSimulator(simulator);
             mainFrame.setVisible(true);

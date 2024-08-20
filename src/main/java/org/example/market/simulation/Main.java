@@ -1,7 +1,6 @@
 package org.example.market.simulation;
 
 import org.example.market.GUI.LoginFrame;
-import org.example.market.GUI.RegisterFrame;
 import org.example.market.data.StockDataLoader;
 import org.example.market.data.StockDataPoint;
 import org.example.market.model.Market;
@@ -46,7 +45,7 @@ public class Main {
         // Tworzenie instancji UserService do zarządzania użytkownikami
         UserService userService = new UserService();
 
-        // Uruchomienie okna logowania
+        // Uruchomienie okna logowania w wątku Swing
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame(userService, market, dataPoints);
             loginFrame.setVisible(true);
