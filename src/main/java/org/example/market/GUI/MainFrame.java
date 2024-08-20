@@ -17,8 +17,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MainFrame extends JFrame implements MarketGUI {
-    private Trader trader;
-    private Market market;
+    private final StockTrader trader;
+    private final Market market;
     private MarketSimulator simulator;
     private JComboBox<String> instrumentComboBox;
     private JTextField quantityField;
@@ -26,18 +26,21 @@ public class MainFrame extends JFrame implements MarketGUI {
     private JLabel budgetLabel;
     private JTable portfolioTable;
     private DefaultTableModel portfolioTableModel;
-    private Map<String, XYSeries> seriesMap;
-    private Map<String, XYSeriesCollection> datasetMap;
+    private final Map<String, XYSeries> seriesMap;
+    private final Map<String, XYSeriesCollection> datasetMap;
     private ChartPanel chartPanel;
     private String currentInstrument;
 
-    public MainFrame(Trader trader, Market market) {
+    public MainFrame(StockTrader trader, Market market, MarketSimulator simulator) {
         this.trader = trader;
         this.market = market;
+        this.simulator = simulator;
         this.seriesMap = new ConcurrentHashMap<>();
         this.datasetMap = new ConcurrentHashMap<>();
         this.currentInstrument = market.getInstruments().get(0).getSymbol(); // Set first available instrument
         initialize();
+        updatePortfolioAndBudget(); // Dodane, aby zaktualizować portfel i budżet
+        updateChartWithCurrentData(); // Dodane, aby zaktualizować wykres po wznowieniu sesji
     }
 
     private void initialize() {
@@ -45,6 +48,15 @@ public class MainFrame extends JFrame implements MarketGUI {
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                if (simulator != null) {
+                    simulator.stopSimulation(); // Wywołanie zapisu stanu symulacji
+                }
+            }
+        });
 
         JPanel mainPanel = new JPanel(new BorderLayout());
         getContentPane().add(mainPanel);
@@ -99,13 +111,18 @@ public class MainFrame extends JFrame implements MarketGUI {
 
         updatePortfolioTable();
         switchInstrument(currentInstrument);
+    }
 
-        Timer updateTimer = new Timer(1000, e -> {
-            if (simulator != null) {
-                simulator.updateCurrentInstrumentData(currentInstrument);
+    private void updateChartWithCurrentData() {
+        long elapsedTime = simulator.getElapsedTime(); // Pobieramy elapsedTime z MarketSimulator
+        for (FinancialInstrument instrument : market.getInstruments()) {
+            XYSeries series = seriesMap.get(instrument.getSymbol());
+            if (series != null) {
+                series.clear();
+                // Dodaj istniejące ceny instrumentów do serii danych wykresu
+                series.add(elapsedTime, instrument.getCurrentPrice().doubleValue());
             }
-        });
-        updateTimer.start();
+        }
     }
 
     private void executeTrade(boolean isBuy) {

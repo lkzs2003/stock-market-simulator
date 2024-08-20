@@ -25,7 +25,7 @@ public abstract class Trader extends User {
         return budget;
     }
 
-    protected void setBudget(BigDecimal budget) {
+    public void setBudget(BigDecimal budget) {
         this.budget = budget;
     }
 
