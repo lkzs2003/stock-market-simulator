@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.jfree.data.xy.XYSeries;
 
 public class MarketSimulator {
     private final List<StockDataPoint> dataPoints;
@@ -45,11 +46,53 @@ public class MarketSimulator {
         this.marketGUI = marketGUI;
     }
 
+    public long getElapsedTime() {
+        return elapsedTime;
+    }
+
     public void startSimulation() {
         running = true;
-        startTime = System.currentTimeMillis() - elapsedTime; // Adjust start time with elapsed time
+        // Get the current time and subtract the elapsed time to continue the simulation from the previous moment
+        startTime = System.currentTimeMillis() - elapsedTime; // Subtract the elapsed time to continue the simulation
+
+        // Start the simulation for each instrument in the market
         for (FinancialInstrument instrument : market.getInstruments()) {
-            executor.submit(new SimulationTask(instrument.getSymbol(), elapsedTime));
+            executor.submit(() -> runSimulationForInstrument(instrument.getSymbol(), elapsedTime));
+        }
+    }
+
+    private void runSimulationForInstrument(String instrumentSymbol, long initialElapsedTime) {
+        if (!running) return;
+
+        for (StockDataPoint dataPoint : dataPoints) {
+            if (!running) break; // Ensure the task stops if simulation is stopped
+
+            if (dataPoint.getSymbol().equals(instrumentSymbol)) {
+                FinancialInstrument instrument = market.getInstrument(dataPoint.getSymbol());
+                if (instrument != null) {
+                    instrument.updatePrice(dataPoint.getPrice());
+                    long currentTime = (System.currentTimeMillis() - startTime) + initialElapsedTime;
+
+                    // Update the GUI with the new data point
+                    SwingUtilities.invokeLater(() -> {
+                        marketGUI.updateCurrentPrice(instrument.getSymbol(), dataPoint.getPrice());
+
+                        // Dodanie punktu danych do serii wykresu
+                        XYSeries series = marketGUI.getSeriesMap().get(instrument.getSymbol());
+                        if (series != null) {
+                            series.add(currentTime / 1000.0, instrument.getCurrentPrice().doubleValue());
+                        }
+
+                        marketGUI.updateChart(instrument.getSymbol(), dataPoint.getPrice(), currentTime / 1000);
+                    });
+
+                    try {
+                        Thread.sleep(1000); // Simulate time delay for new data points
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
         }
     }
 
@@ -72,10 +115,10 @@ public class MarketSimulator {
             Map<String, Object> state = gson.fromJson(reader, stateType);
 
             if (state != null) {
-                // Odczyt upływu czasu symulacji
+                // Get the elapsed time of the simulation
                 elapsedTime = ((Double) state.get("elapsedTime")).longValue();
 
-                // Odczyt cen instrumentów finansowych
+                // Get the prices of the financial instruments
                 Map<String, Double> prices = (Map<String, Double>) state.get("prices");
                 if (prices != null) {
                     for (FinancialInstrument instrument : market.getInstruments()) {
@@ -86,7 +129,7 @@ public class MarketSimulator {
                     }
                 }
 
-                // Odczyt portfela użytkownika
+                // Get the user's portfolio
                 Map<String, Double> portfolio = (Map<String, Double>) state.get("portfolio");
                 if (portfolio != null) {
                     for (FinancialInstrument instrument : market.getInstruments()) {
@@ -97,7 +140,7 @@ public class MarketSimulator {
                     }
                 }
 
-                // Odczyt budżetu użytkownika
+                // Get the user's budget
                 Double budget = (Double) state.get("budget");
                 if (budget != null) {
                     trader.setBudget(BigDecimal.valueOf(budget));
@@ -116,71 +159,30 @@ public class MarketSimulator {
             Gson gson = new Gson();
             Map<String, Object> state = new HashMap<>();
 
-            // Zapisujemy upływ czasu symulacji
-            state.put("elapsedTime", (System.currentTimeMillis() - startTime) / 1000.0);
+            // Save the elapsed time of the simulation
+            state.put("elapsedTime", (System.currentTimeMillis() - startTime));
 
-            // Zapisujemy ceny instrumentów finansowych
+            // Save the current prices of the financial instruments
             Map<String, BigDecimal> prices = new HashMap<>();
             for (FinancialInstrument instrument : market.getInstruments()) {
                 prices.put(instrument.getSymbol(), instrument.getCurrentPrice());
             }
             state.put("prices", prices);
 
-            // Zapisujemy portfel użytkownika
+            // Save the user's portfolio
             Map<String, BigDecimal> portfolio = new HashMap<>();
             for (Map.Entry<FinancialInstrument, BigDecimal> entry : trader.getPortfolio().getInstruments().entrySet()) {
                 portfolio.put(entry.getKey().getSymbol(), entry.getValue());
             }
             state.put("portfolio", portfolio);
 
-            // Zapisujemy budżet użytkownika
+            // Save the user's budget
             state.put("budget", trader.getBudget());
 
             gson.toJson(state, writer);
+            System.out.println("Simulation state saved successfully.");
         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
-
-    public void updateCurrentInstrumentData(String newInstrument) {
-        executor.submit(new SimulationTask(newInstrument, elapsedTime));
-    }
-
-    public long getElapsedTime() {
-        return elapsedTime;
-    }
-
-    private class SimulationTask implements Runnable {
-        private final String instrumentSymbol;
-        private final long initialElapsedTime;
-
-        public SimulationTask(String instrumentSymbol, long initialElapsedTime) {
-            this.instrumentSymbol = instrumentSymbol;
-            this.initialElapsedTime = initialElapsedTime;
-        }
-
-        @Override
-        public void run() {
-            if (!running) return;
-
-            for (StockDataPoint dataPoint : dataPoints) {
-                if (dataPoint.getSymbol().equals(instrumentSymbol)) {
-                    FinancialInstrument instrument = market.getInstrument(dataPoint.getSymbol());
-                    if (instrument != null) {
-                        instrument.updatePrice(dataPoint.getPrice());
-                        long currentTime = (System.currentTimeMillis() - startTime) / 1000 + initialElapsedTime;
-                        SwingUtilities.invokeLater(() -> {
-                            marketGUI.updateCurrentPrice(instrument.getSymbol(), dataPoint.getPrice());
-                            marketGUI.updateChart(instrument.getSymbol(), dataPoint.getPrice(), currentTime);
-                        });
-                        try {
-                            Thread.sleep(1000); // Simulate time delay for new data points
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
-                }
-            }
         }
     }
 }

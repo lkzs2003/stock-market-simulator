@@ -1,6 +1,8 @@
 package org.example.market.GUI;
 
-import org.example.market.model.*;
+import org.example.market.model.FinancialInstrument;
+import org.example.market.model.Market;
+import org.example.market.model.StockTrader;
 import org.example.market.simulation.MarketSimulator;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -24,7 +26,6 @@ public class MainFrame extends JFrame implements MarketGUI {
     private JTextField quantityField;
     private JLabel currentPriceLabel;
     private JLabel budgetLabel;
-    private JTable portfolioTable;
     private DefaultTableModel portfolioTableModel;
     private final Map<String, XYSeries> seriesMap;
     private final Map<String, XYSeriesCollection> datasetMap;
@@ -37,10 +38,8 @@ public class MainFrame extends JFrame implements MarketGUI {
         this.simulator = simulator;
         this.seriesMap = new ConcurrentHashMap<>();
         this.datasetMap = new ConcurrentHashMap<>();
-        this.currentInstrument = market.getInstruments().get(0).getSymbol(); // Set first available instrument
+        this.currentInstrument = market.getInstruments().getFirst().getSymbol(); // Set first available instrument
         initialize();
-        updatePortfolioAndBudget(); // Dodane, aby zaktualizować portfel i budżet
-        updateChartWithCurrentData(); // Dodane, aby zaktualizować wykres po wznowieniu sesji
     }
 
     private void initialize() {
@@ -50,14 +49,13 @@ public class MainFrame extends JFrame implements MarketGUI {
         setLocationRelativeTo(null);
 
         addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                if (simulator != null) {
-                    simulator.stopSimulation(); // Wywołanie zapisu stanu symulacji
-                }
+        @Override
+        public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+            if (simulator != null) {
+                simulator.stopSimulation(); // Stop the simulation when the window is closed
             }
-        });
-
+        }
+    });
         JPanel mainPanel = new JPanel(new BorderLayout());
         getContentPane().add(mainPanel);
 
@@ -100,7 +98,7 @@ public class MainFrame extends JFrame implements MarketGUI {
                 return false;
             }
         };
-        portfolioTable = new JTable(portfolioTableModel);
+        JTable portfolioTable = new JTable(portfolioTableModel);
         JScrollPane portfolioScrollPane = new JScrollPane(portfolioTable);
         mainPanel.add(portfolioScrollPane, BorderLayout.CENTER);
 
@@ -111,18 +109,24 @@ public class MainFrame extends JFrame implements MarketGUI {
 
         updatePortfolioTable();
         switchInstrument(currentInstrument);
+        reloadChartWithLoadedData(); // Load initial data to the chart
     }
 
-    private void updateChartWithCurrentData() {
-        long elapsedTime = simulator.getElapsedTime(); // Pobieramy elapsedTime z MarketSimulator
+    private void reloadChartWithLoadedData() {
         for (FinancialInstrument instrument : market.getInstruments()) {
             XYSeries series = seriesMap.get(instrument.getSymbol());
             if (series != null) {
-                series.clear();
-                // Dodaj istniejące ceny instrumentów do serii danych wykresu
-                series.add(elapsedTime, instrument.getCurrentPrice().doubleValue());
+                series.clear(); // Usuń stare dane
+                long elapsedTime = simulator.getElapsedTime(); // Get the current elapsed time
+
+                // Add the initial data points to the series
+                series.add(elapsedTime / 1000.0, instrument.getCurrentPrice().doubleValue());
             }
         }
+
+        // Revalidate and repaint the chart panel
+        chartPanel.revalidate();
+        chartPanel.repaint();
     }
 
     private void executeTrade(boolean isBuy) {
@@ -185,16 +189,16 @@ public class MainFrame extends JFrame implements MarketGUI {
                 XYSeriesCollection dataset = datasetMap.get(newInstrument);
                 chartPanel.setChart(ChartFactory.createXYLineChart("Price Over Time", "Time (seconds)", "Price", dataset, PlotOrientation.VERTICAL, true, true, false));
                 updateCurrentPrice(newInstrument, instrument.getCurrentPrice());
+                reloadChartWithLoadedData(); // Add initial data points to the chart
             }
         }
     }
 
-    @Override
-    public String getCurrentInstrument() {
-        return currentInstrument;
-    }
-
     public void setSimulator(MarketSimulator simulator) {
         this.simulator = simulator;
+    }
+
+    public Map<String, XYSeries> getSeriesMap() {
+        return seriesMap;
     }
 }
