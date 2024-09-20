@@ -1,67 +1,81 @@
 package org.example.market.service;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
+import org.example.market.model.StockTrader;
 import org.example.market.model.Trader;
 
-import java.io.*;
-import java.lang.reflect.Type;
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.UUID;
 
 public class UserService {
-    private static final String USER_FILE = "users.json";
-    private Map<String, Trader> users = new HashMap<>();
-    private final Gson gson;
 
-    public UserService() {
-        gson = new GsonBuilder()
-                .registerTypeAdapter(Trader.class, new TraderAdapter())
-                .create();
-        loadUsersFromFile();
-    }
-
+    // Register a new user (Trader)
     public boolean registerUser(Trader trader) {
-        if (users.containsKey(trader.getUsername())) {
+        // Check if the user already exists
+        if (userExists(trader.getUsername())) {
             System.out.println("User already exists.");
             return false;
         }
-        users.put(trader.getUsername(), trader);
-        saveUsersToFile();
-        System.out.println("User registered successfully.");
-        return true;
+
+        String insertSQL = "INSERT INTO users (user_id, username, password, email) VALUES (?, ?, ?, ?)";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+
+            pstmt.setString(1, UUID.randomUUID().toString()); // Generate a unique user_id
+            pstmt.setString(2, trader.getUsername());
+            pstmt.setString(3, trader.getPassword());
+            pstmt.setString(4, trader.getEmail());
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
+    // Check if a user with the provided username already exists
+    public boolean userExists(String username) {
+        String checkUserSQL = "SELECT 1 FROM users WHERE username = ?";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(checkUserSQL)) {
+
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next(); // If a row exists, the user already exists
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Log in a user by checking credentials
     public Trader loginUser(String username, String password) {
-        Trader trader = users.get(username);
-        if (trader != null && trader.login(username, password)) {
-            System.out.println("User logged in successfully.");
-            return trader;
-        }
-        System.out.println("Invalid username or password.");
-        return null;
-    }
+        String selectSQL = "SELECT * FROM users WHERE username = ? AND password = ?";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(selectSQL)) {
 
-    private void loadUsersFromFile() {
-        try (Reader reader = new FileReader(USER_FILE)) {
-            Type userMapType = new TypeToken<Map<String, Trader>>(){}.getType();
-            users = gson.fromJson(reader, userMapType);
-            if (users == null) {
-                users = new HashMap<>();
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                // Assuming the user is always a StockTrader for simplicity
+                return new StockTrader(
+                        rs.getString("user_id"),
+                        rs.getString("username"),
+                        rs.getString("password"),
+                        rs.getString("email"),
+                        5 // Default risk level
+                );
+            } else {
+                return null; // No matching user found
             }
-        } catch (FileNotFoundException e) {
-            System.out.println("No user file found. Starting with an empty user list.");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
-    private void saveUsersToFile() {
-        try (Writer writer = new FileWriter(USER_FILE)) {
-            gson.toJson(users, writer);
-        } catch (IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
+            return null;
         }
     }
 }

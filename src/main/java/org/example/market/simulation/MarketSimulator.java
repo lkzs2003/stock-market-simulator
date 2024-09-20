@@ -1,20 +1,19 @@
 package org.example.market.simulation;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.example.market.GUI.MarketGUI;
 import org.example.market.data.StockDataPoint;
 import org.example.market.model.FinancialInstrument;
 import org.example.market.model.Market;
 import org.example.market.model.StockTrader;
+import org.example.market.service.DatabaseManager;
 
 import javax.swing.SwingUtilities;
-import java.io.*;
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
-import java.util.HashMap;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.jfree.data.xy.XYSeries;
@@ -29,8 +28,6 @@ public class MarketSimulator {
     private long startTime;
     private long elapsedTime;
 
-    private static final String SIMULATION_STATE_FILE = "simulation_state.json";
-
     public MarketSimulator(List<StockDataPoint> dataPoints, Market market, StockTrader trader, MarketGUI marketGUI) {
         this.dataPoints = dataPoints;
         this.market = market;
@@ -39,6 +36,7 @@ public class MarketSimulator {
         this.executor = Executors.newFixedThreadPool(10);
         this.running = true;
 
+        DatabaseManager.initializeDatabase(); // Ensure database and table creation
         loadSimulationState(); // Load the previous state if it exists
     }
 
@@ -52,8 +50,14 @@ public class MarketSimulator {
 
     public void startSimulation() {
         running = true;
-        // Get the current time and subtract the elapsed time to continue the simulation from the previous moment
-        startTime = System.currentTimeMillis() - elapsedTime; // Subtract the elapsed time to continue the simulation
+        startTime = System.currentTimeMillis() - elapsedTime;
+
+        // Ensure all instruments are initialized with correct prices before starting the simulation
+        for (FinancialInstrument instrument : market.getInstruments()) {
+            if (instrument.getCurrentPrice() == null) {
+                instrument.updatePrice(BigDecimal.ZERO); // Initialize price if not set
+            }
+        }
 
         // Start the simulation for each instrument in the market
         for (FinancialInstrument instrument : market.getInstruments()) {
@@ -65,7 +69,7 @@ public class MarketSimulator {
         if (!running) return;
 
         for (StockDataPoint dataPoint : dataPoints) {
-            if (!running) break; // Ensure the task stops if simulation is stopped
+            if (!running) break;
 
             if (dataPoint.getSymbol().equals(instrumentSymbol)) {
                 FinancialInstrument instrument = market.getInstrument(dataPoint.getSymbol());
@@ -77,7 +81,7 @@ public class MarketSimulator {
                     SwingUtilities.invokeLater(() -> {
                         marketGUI.updateCurrentPrice(instrument.getSymbol(), dataPoint.getPrice());
 
-                        // Dodanie punktu danych do serii wykresu
+                        // Add the new data point to the chart series
                         XYSeries series = marketGUI.getSeriesMap().get(instrument.getSymbol());
                         if (series != null) {
                             series.add(currentTime / 1000.0, instrument.getCurrentPrice().doubleValue());
@@ -98,90 +102,63 @@ public class MarketSimulator {
 
     public void stopSimulation() {
         running = false;
-        saveSimulationState(); // Save the state when stopping the simulation
+        saveSimulationState(); // Save the state to SQLite when stopping the simulation
     }
 
     private void loadSimulationState() {
-        File file = new File(SIMULATION_STATE_FILE);
-        System.out.println("Attempting to load simulation state from: " + file.getAbsolutePath());
-        if (!file.exists()) {
-            System.out.println("Simulation state file does not exist.");
-            return;
-        }
+        String selectSQL = "SELECT * FROM simulation_state WHERE user_id = ?";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(selectSQL)) {
 
-        try (Reader reader = new FileReader(SIMULATION_STATE_FILE)) {
-            Gson gson = new Gson();
-            Type stateType = new TypeToken<Map<String, Object>>() {}.getType();
-            Map<String, Object> state = gson.fromJson(reader, stateType);
+            pstmt.setString(1, trader.getUserId());
+            ResultSet rs = pstmt.executeQuery();
 
-            if (state != null) {
-                // Get the elapsed time of the simulation
-                elapsedTime = ((Double) state.get("elapsedTime")).longValue();
+            if (rs.next()) {
+                // Load the elapsed time
+                elapsedTime = rs.getLong("elapsed_time");
 
-                // Get the prices of the financial instruments
-                Map<String, Double> prices = (Map<String, Double>) state.get("prices");
-                if (prices != null) {
-                    for (FinancialInstrument instrument : market.getInstruments()) {
-                        if (prices.containsKey(instrument.getSymbol())) {
-                            BigDecimal price = BigDecimal.valueOf(prices.get(instrument.getSymbol()));
-                            instrument.updatePrice(price);
-                        }
-                    }
+                // Load the prices of the financial instruments
+                String symbol = rs.getString("instrument_symbol");
+                BigDecimal price = rs.getBigDecimal("price");
+                FinancialInstrument instrument = market.getInstrument(symbol);
+                if (instrument != null) {
+                    instrument.updatePrice(price);
                 }
 
-                // Get the user's portfolio
-                Map<String, Double> portfolio = (Map<String, Double>) state.get("portfolio");
-                if (portfolio != null) {
-                    for (FinancialInstrument instrument : market.getInstruments()) {
-                        if (portfolio.containsKey(instrument.getSymbol())) {
-                            BigDecimal quantity = BigDecimal.valueOf(portfolio.get(instrument.getSymbol()));
-                            trader.getPortfolio().addInstrument(instrument, quantity);
-                        }
-                    }
+                // Load the trader's portfolio
+                BigDecimal quantity = rs.getBigDecimal("quantity");
+                if (instrument != null && quantity != null) {
+                    trader.getPortfolio().addInstrument(instrument, quantity);  // Ensure correct portfolio addition
                 }
 
-                // Get the user's budget
-                Double budget = (Double) state.get("budget");
+                // Load the trader's budget
+                BigDecimal budget = rs.getBigDecimal("budget");
                 if (budget != null) {
-                    trader.setBudget(BigDecimal.valueOf(budget));
+                    trader.setBudget(budget);  // Ensure budget is loaded
                 }
             }
-        } catch (FileNotFoundException e) {
-            System.out.println("No previous simulation state found. Starting fresh.");
-        } catch (IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
     private void saveSimulationState() {
-        try (Writer writer = new FileWriter(SIMULATION_STATE_FILE)) {
-            System.out.println("Saving simulation state to: " + new File(SIMULATION_STATE_FILE).getAbsolutePath());
-            Gson gson = new Gson();
-            Map<String, Object> state = new HashMap<>();
+        String insertSQL = "INSERT OR REPLACE INTO simulation_state (user_id, elapsed_time, instrument_symbol, price, quantity, budget) VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
 
-            // Save the elapsed time of the simulation
-            state.put("elapsedTime", (System.currentTimeMillis() - startTime));
+            pstmt.setString(1, trader.getUserId());
+            pstmt.setLong(2, (System.currentTimeMillis() - startTime));
 
-            // Save the current prices of the financial instruments
-            Map<String, BigDecimal> prices = new HashMap<>();
             for (FinancialInstrument instrument : market.getInstruments()) {
-                prices.put(instrument.getSymbol(), instrument.getCurrentPrice());
+                pstmt.setString(3, instrument.getSymbol());
+                pstmt.setBigDecimal(4, instrument.getCurrentPrice());
+                pstmt.setBigDecimal(5, trader.getPortfolio().getQuantity(instrument));
+                pstmt.setBigDecimal(6, trader.getBudget());
+                pstmt.executeUpdate();
             }
-            state.put("prices", prices);
-
-            // Save the user's portfolio
-            Map<String, BigDecimal> portfolio = new HashMap<>();
-            for (Map.Entry<FinancialInstrument, BigDecimal> entry : trader.getPortfolio().getInstruments().entrySet()) {
-                portfolio.put(entry.getKey().getSymbol(), entry.getValue());
-            }
-            state.put("portfolio", portfolio);
-
-            // Save the user's budget
-            state.put("budget", trader.getBudget());
-
-            gson.toJson(state, writer);
             System.out.println("Simulation state saved successfully.");
-        } catch (IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }

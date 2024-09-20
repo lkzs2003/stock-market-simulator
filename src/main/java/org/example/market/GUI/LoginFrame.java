@@ -19,7 +19,7 @@ public class LoginFrame extends JFrame {
     private final Market market;
     private final List<StockDataPoint> dataPoints;
 
-    // Konstruktor przyjmujący trzy argumenty
+    // Constructor that accepts UserService, Market, and List of StockDataPoints
     public LoginFrame(UserService userService, Market market, List<StockDataPoint> dataPoints) {
         this.userService = userService;
         this.market = market;
@@ -27,6 +27,7 @@ public class LoginFrame extends JFrame {
         initialize();
     }
 
+    // Initialize the login frame
     private void initialize() {
         setTitle("Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -55,22 +56,25 @@ public class LoginFrame extends JFrame {
         add(panel);
     }
 
+    // Action listener for the login button
     private class LoginAction implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             String username = usernameField.getText();
             String password = new String(passwordField.getPassword());
 
-            StockTrader trader = (StockTrader) userService.loginUser(username, password); // Zakładamy, że użytkownik jest typu StockTrader
+            // Log in the user using the UserService
+            StockTrader trader = (StockTrader) userService.loginUser(username, password);
             if (trader != null) {
                 JOptionPane.showMessageDialog(LoginFrame.this, "Login successful.");
-                launchSimulation(trader);
+                launchSimulation(trader); // Launch the simulation with the logged-in StockTrader
             } else {
                 JOptionPane.showMessageDialog(LoginFrame.this, "Login failed. Please check your credentials.");
             }
         }
     }
 
+    // Action listener for the register button
     private class RegisterAction implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -78,25 +82,25 @@ public class LoginFrame extends JFrame {
         }
     }
 
+    // Open the registration frame
     private void openRegisterFrame() {
         SwingUtilities.invokeLater(() -> {
-            // Tworzenie instancji RegisterFrame z trzema argumentami
             RegisterFrame registerFrame = new RegisterFrame(userService, market, dataPoints);
             registerFrame.setVisible(true);
-            dispose(); // Zamknięcie okna logowania
+            dispose(); // Close the login frame
         });
     }
 
+    // Launch the simulation for the logged-in user
     private void launchSimulation(StockTrader stockTrader) {
         SwingUtilities.invokeLater(() -> {
-            dispose();  // Zamknięcie okna logowania
-            MarketSimulator simulator = new MarketSimulator(dataPoints, market, stockTrader, null); // Tworzymy MarketSimulator
-            MainFrame mainFrame = new MainFrame(stockTrader, market, simulator);  // Przekazujemy MarketSimulator do MainFrame
-            simulator.setMarketGUI(mainFrame);
-            mainFrame.setSimulator(simulator);
+            dispose();  // Close the login window
+            MarketSimulator simulator = new MarketSimulator(dataPoints, market, stockTrader, null); // Pass null for GUI if not available
+            MainFrame mainFrame = new MainFrame(stockTrader, market, simulator);  // Pass the simulator to MainFrame
+            simulator.setMarketGUI(mainFrame);  // Connect the simulator to the GUI
+            mainFrame.setSimulator(simulator);  // Connect the simulator
             mainFrame.setVisible(true);
             simulator.startSimulation();
         });
     }
-
 }
