@@ -116,9 +116,9 @@ public class MarketSimulator {
             while (rs.next()) {
                 // Załaduj czas symulacji
                 elapsedTime = rs.getLong("elapsed_time");
-                startTime = System.currentTimeMillis() - elapsedTime;  // Wznów symulację od ostatniego zapisanego czasu
+                startTime = System.currentTimeMillis() - elapsedTime;  // Resume the simulation from the last saved time
 
-                // Załaduj każdy instrument: symbol, cenę, ilość oraz budżet
+                // Load each instrument: symbol, price, quantity and budget
                 String symbol = rs.getString("instrument_symbol");
                 BigDecimal price = rs.getBigDecimal("price");
                 BigDecimal quantity = rs.getBigDecimal("quantity");
@@ -130,12 +130,12 @@ public class MarketSimulator {
                     System.out.println("Loaded instrument: " + symbol + ", Quantity: " + quantity + ", Price: " + price);
                 }
 
-                // Dodaj instrumenty z ważną ilością do portfela
+                // Add the instrument to the portfolio
                 if (quantity != null && quantity.compareTo(BigDecimal.ZERO) > 0 && instrument != null) {
                     trader.getPortfolio().addInstrument(instrument, quantity);
                 }
 
-                // Ustaw budżet użytkownika
+                // Set the budget for the trader
                 if (budget != null) {
                     trader.setBudget(budget);
                 }
@@ -153,18 +153,18 @@ public class MarketSimulator {
         Connection conn = null;
         try {
             conn = DatabaseManager.connect();
-            conn.setAutoCommit(false);  // Wyłącz tryb automatycznego zatwierdzania dla transakcji
+            conn.setAutoCommit(false);  // Turn off automatic approval mode for transactions
 
             PreparedStatement pstmt = conn.prepareStatement(insertSQL);
             long currentElapsedTime = System.currentTimeMillis() - startTime;
 
-            // Ustaw podstawowe informacje o użytkowniku i czasie symulacji
+            // Set basic user information and simulation time
             for (FinancialInstrument instrument : market.getInstruments()) {
                 BigDecimal quantity = trader.getPortfolio().getQuantity(instrument);
                 BigDecimal price = instrument.getCurrentPrice();
                 BigDecimal budget = trader.getBudget();
 
-                // Sprawdź, czy ilość jest niezerowa i niepusta
+                // Check if the instrument is in the portfolio
                 if (quantity != null && quantity.compareTo(BigDecimal.ZERO) > 0) {
                     System.out.println("Saving portfolio: User ID = " + trader.getUserId());
                     System.out.println("Instrument = " + instrument.getSymbol() + ", Quantity = " + quantity + ", Price = " + price);
@@ -180,12 +180,12 @@ public class MarketSimulator {
                 }
             }
 
-            conn.commit();  // Zatwierdź transakcję po zapisaniu wszystkich instrumentów
+            conn.commit();  // Approve the transaction
             System.out.println("Simulation state saved successfully.");
         } catch (SQLException e) {
             if (conn != null) {
                 try {
-                    conn.rollback();  // Cofnij transakcję w przypadku błędu
+                    conn.rollback();  // Rollback the transaction if an error occurs
                     System.out.println("Transaction rolled back due to error.");
                 } catch (SQLException rollbackEx) {
                     rollbackEx.printStackTrace();
@@ -195,7 +195,7 @@ public class MarketSimulator {
         } finally {
             if (conn != null) {
                 try {
-                    conn.setAutoCommit(true);  // Przywróć tryb automatycznego zatwierdzania
+                    conn.setAutoCommit(true);  // Re-enable auto-commit mode
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }

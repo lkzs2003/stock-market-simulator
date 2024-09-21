@@ -70,8 +70,7 @@ public class UserService {
                         rs.getString("user_id"),
                         rs.getString("username"),
                         rs.getString("password"),
-                        rs.getString("email"),
-                        5 // Default risk level
+                        rs.getString("email")
                 );
             } else {
                 return null; // No matching user found

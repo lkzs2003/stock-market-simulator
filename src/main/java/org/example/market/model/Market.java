@@ -1,11 +1,10 @@
 package org.example.market.model;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Market {
-    private List<FinancialInstrument> instruments;
+    private final List<FinancialInstrument> instruments;
 
     public Market() {
         this.instruments = new ArrayList<>();
@@ -13,12 +12,6 @@ public class Market {
 
     public void addInstrument(FinancialInstrument instrument) {
         this.instruments.add(instrument);
-    }
-
-    public void addInstrumentsFromSymbols(List<String> symbols) {
-        for (String symbol : symbols) {
-            this.instruments.add(new Stock(symbol, symbol + " Inc.", BigDecimal.ZERO, "NASDAQ"));
-        }
     }
 
     public List<FinancialInstrument> getInstruments() {

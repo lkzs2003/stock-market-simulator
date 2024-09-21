@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public abstract class FinancialInstrument {
-    private String symbol;
-    private String name;
+    private final String symbol;
+    private final String name;
     private BigDecimal currentPrice;
     private List<BigDecimal> historicalPrices;
 
@@ -29,10 +29,6 @@ public abstract class FinancialInstrument {
 
     public void updatePrice(BigDecimal newPrice) {
         this.currentPrice = newPrice;
-    }
-
-    public List<BigDecimal> getHistoricalPrices() {
-        return historicalPrices;
     }
 
     public void setHistoricalPrices(List<BigDecimal> historicalPrices) {

@@ -59,7 +59,7 @@ public class RegisterFrame extends JFrame {
             String username = usernameField.getText();
             String password = new String(passwordField.getPassword());
 
-            StockTrader trader = new StockTrader("1", username, password, username + "@example.com", 5);
+            StockTrader trader = new StockTrader("1", username, password, username + "@example.com");
 
             if (userService.registerUser(trader)) {
                 JOptionPane.showMessageDialog(RegisterFrame.this, "Registration successful. You can now log in.");
@@ -81,7 +81,7 @@ public class RegisterFrame extends JFrame {
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame(userService, market, dataPoints);
             loginFrame.setVisible(true);
-            dispose(); // Zamknięcie okna rejestracji
+            dispose(); // Close the registration frame
         });
     }
 }

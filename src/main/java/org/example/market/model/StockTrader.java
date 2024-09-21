@@ -3,8 +3,8 @@ package org.example.market.model;
 import java.math.BigDecimal;
 
 public class StockTrader extends Trader {
-    public StockTrader(String userId, String username, String password, String email, int riskAssessmentLevel) {
-        super(userId, username, password, email, riskAssessmentLevel);
+    public StockTrader(String userId, String username, String password, String email) {
+        super(userId, username, password, email);
     }
 
     @Override

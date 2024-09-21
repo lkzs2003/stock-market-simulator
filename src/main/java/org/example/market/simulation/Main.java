@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 public class Main {
     public static void main(String[] args) {
-        // Ścieżki do plików CSV zawierających dane giełdowe
+        // Paths to CSV files containing stock data
         List<String> filePaths = Arrays.asList(
                 "AAPL.csv",
                 "DELL.csv",
@@ -31,21 +31,21 @@ public class Main {
                 "TSLA.csv"
         );
 
-        // Ładowanie danych giełdowych z plików CSV
+        // Load stock data from CSV files
         StockDataLoader dataLoader = new StockDataLoader();
         List<StockDataPoint> dataPoints = dataLoader.loadMultipleStockData(filePaths);
 
-        // Grupowanie danych giełdowych według symbolu
+        // Group stock data points by symbol
         Map<String, List<StockDataPoint>> dataPointsBySymbol = dataPoints.stream()
                 .collect(Collectors.groupingBy(StockDataPoint::getSymbol));
 
-        // Inicjalizacja rynku z danymi
+        // Initialize the market with stock data
         Market market = initializeMarket(dataPointsBySymbol);
 
-        // Tworzenie instancji UserService do zarządzania użytkownikami
+        // Creating a UserService instance to manage users
         UserService userService = new UserService();
 
-        // Uruchomienie okna logowania w wątku Swing
+        // Start the GUI on the Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame(userService, market, dataPoints);
             loginFrame.setVisible(true);
@@ -56,7 +56,7 @@ public class Main {
         Market market = new Market();
         List<String> stockSymbols = Arrays.asList("AAPL", "DELL", "MCD", "MSFT", "NFLX", "NKE", "SBUX", "TSLA");
 
-        // Dodawanie akcji do rynku
+        // Adding stocks to the market
         for (String symbol : stockSymbols) {
             Stock stock = new Stock(symbol, symbol + " Inc.", BigDecimal.ZERO, "NASDAQ");
             stock.setHistoricalPrices(dataPointsBySymbol.get(symbol).stream()
@@ -65,7 +65,7 @@ public class Main {
             market.addInstrument(stock);
         }
 
-        // Dodawanie walut do rynku
+        // Adding currencies to the market
         Currency eur = new Currency("EUR=X", "Euro", BigDecimal.ZERO, "Eurozone");
         eur.setHistoricalPrices(dataPointsBySymbol.get("EUR=X").stream()
                 .map(StockDataPoint::getPrice)

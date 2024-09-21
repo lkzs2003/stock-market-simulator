@@ -9,8 +9,4 @@ public class Currency extends FinancialInstrument {
         super(symbol, name, currentPrice);
         this.country = country;
     }
-
-    public String getCountry() {
-        return this.country;
-    }
 }
