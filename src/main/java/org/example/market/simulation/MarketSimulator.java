@@ -113,30 +113,36 @@ public class MarketSimulator {
             pstmt.setString(1, trader.getUserId());
             ResultSet rs = pstmt.executeQuery();
 
-            if (rs.next()) {
-                // Load the elapsed time
+            while (rs.next()) {
+                // Załaduj czas symulacji
                 elapsedTime = rs.getLong("elapsed_time");
+                startTime = System.currentTimeMillis() - elapsedTime;  // Wznów symulację od ostatniego zapisanego czasu
 
-                // Load the prices of the financial instruments
+                // Załaduj każdy instrument: symbol, cenę, ilość oraz budżet
                 String symbol = rs.getString("instrument_symbol");
                 BigDecimal price = rs.getBigDecimal("price");
+                BigDecimal quantity = rs.getBigDecimal("quantity");
+                BigDecimal budget = rs.getBigDecimal("budget");
+
                 FinancialInstrument instrument = market.getInstrument(symbol);
                 if (instrument != null) {
                     instrument.updatePrice(price);
+                    System.out.println("Loaded instrument: " + symbol + ", Quantity: " + quantity + ", Price: " + price);
                 }
 
-                // Load the trader's portfolio
-                BigDecimal quantity = rs.getBigDecimal("quantity");
-                if (instrument != null && quantity != null) {
-                    trader.getPortfolio().addInstrument(instrument, quantity);  // Ensure correct portfolio addition
+                // Dodaj instrumenty z ważną ilością do portfela
+                if (quantity != null && quantity.compareTo(BigDecimal.ZERO) > 0 && instrument != null) {
+                    trader.getPortfolio().addInstrument(instrument, quantity);
                 }
 
-                // Load the trader's budget
-                BigDecimal budget = rs.getBigDecimal("budget");
+                // Ustaw budżet użytkownika
                 if (budget != null) {
-                    trader.setBudget(budget);  // Ensure budget is loaded
+                    trader.setBudget(budget);
                 }
+
+                System.out.println("Loaded portfolio for User ID: " + trader.getUserId());
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -144,22 +150,56 @@ public class MarketSimulator {
 
     private void saveSimulationState() {
         String insertSQL = "INSERT OR REPLACE INTO simulation_state (user_id, elapsed_time, instrument_symbol, price, quantity, budget) VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DatabaseManager.connect();
-             PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+        Connection conn = null;
+        try {
+            conn = DatabaseManager.connect();
+            conn.setAutoCommit(false);  // Wyłącz tryb automatycznego zatwierdzania dla transakcji
 
-            pstmt.setString(1, trader.getUserId());
-            pstmt.setLong(2, (System.currentTimeMillis() - startTime));
+            PreparedStatement pstmt = conn.prepareStatement(insertSQL);
+            long currentElapsedTime = System.currentTimeMillis() - startTime;
 
+            // Ustaw podstawowe informacje o użytkowniku i czasie symulacji
             for (FinancialInstrument instrument : market.getInstruments()) {
-                pstmt.setString(3, instrument.getSymbol());
-                pstmt.setBigDecimal(4, instrument.getCurrentPrice());
-                pstmt.setBigDecimal(5, trader.getPortfolio().getQuantity(instrument));
-                pstmt.setBigDecimal(6, trader.getBudget());
-                pstmt.executeUpdate();
+                BigDecimal quantity = trader.getPortfolio().getQuantity(instrument);
+                BigDecimal price = instrument.getCurrentPrice();
+                BigDecimal budget = trader.getBudget();
+
+                // Sprawdź, czy ilość jest niezerowa i niepusta
+                if (quantity != null && quantity.compareTo(BigDecimal.ZERO) > 0) {
+                    System.out.println("Saving portfolio: User ID = " + trader.getUserId());
+                    System.out.println("Instrument = " + instrument.getSymbol() + ", Quantity = " + quantity + ", Price = " + price);
+                    System.out.println("Budget = " + budget);
+
+                    pstmt.setString(1, trader.getUserId());
+                    pstmt.setLong(2, currentElapsedTime);
+                    pstmt.setString(3, instrument.getSymbol());
+                    pstmt.setBigDecimal(4, price);
+                    pstmt.setBigDecimal(5, quantity);
+                    pstmt.setBigDecimal(6, budget);
+                    pstmt.executeUpdate();  // Zapisz dane do bazy
+                }
             }
+
+            conn.commit();  // Zatwierdź transakcję po zapisaniu wszystkich instrumentów
             System.out.println("Simulation state saved successfully.");
         } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();  // Cofnij transakcję w przypadku błędu
+                    System.out.println("Transaction rolled back due to error.");
+                } catch (SQLException rollbackEx) {
+                    rollbackEx.printStackTrace();
+                }
+            }
             e.printStackTrace();
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);  // Przywróć tryb automatycznego zatwierdzania
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }

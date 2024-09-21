@@ -11,6 +11,10 @@ import java.util.UUID;
 
 public class UserService {
 
+    public UserService() {
+        DatabaseManager.initializeDatabase();  // Ensure the database and tables are created
+    }
+
     // Register a new user (Trader)
     public boolean registerUser(Trader trader) {
         // Check if the user already exists
