@@ -94,8 +94,3 @@ This will launch the Stock Market Simulator with a graphical user interface (GUI
 
 If you encounter issues such as "Table not found" errors, ensure that the SQLite database has been correctly initialized. You can modify the schema in the `DatabaseManager.java` class or manually execute the SQL commands provided in the Database Setup section.
 
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
----
